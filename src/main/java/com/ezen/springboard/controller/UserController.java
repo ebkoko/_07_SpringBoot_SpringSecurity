@@ -35,7 +35,7 @@ public class UserController {
 	public ModelAndView joinView() {
 		ModelAndView mv = new ModelAndView();
 		
-		mv.setViewName("/user/join.html");
+		mv.setViewName("user/join.html");
 		return mv;
 	}
 	
@@ -75,7 +75,7 @@ public class UserController {
 	public ModelAndView loginView() {
 		ModelAndView mv = new ModelAndView();
 		
-		mv.setViewName("/user/login.html");
+		mv.setViewName("user/login.html");
 		return mv;
 	}
 	

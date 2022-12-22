@@ -9,12 +9,196 @@
 	<head>
 		<th:block layout:fragment="script">
 			<script th:inline="javascript">
+				// 변경사항이 있는 게시물들을 객체형태로 담아서 백엔드로 전송할 변수
+				let changeRows = [];
+				// 추가된 Row의 개수
+				let addRowCount = 0;
+				// 수정모드 플래그
+				let updateMode = false;
+				// 추가된 행의 작성자로 들어갈 로그인한 유저 아이디
+				const userId = /*[[${#authentication.principal.username}]]*/;
+			
 				$(function() {
 					$("#btnSearch").on("click", function() {
 						$("input[name='page']").val(0);
 						$("#searchForm").submit();
-					})
-				})
+					});
+					
+					// 추가버튼 클릭 시 행 추가
+					$("#addRowBtn").on('click', function() {
+						// 추가된 행에 날짜를 표시
+						const today = new Date();
+						const year = today.getFullYear();
+						const month = (today.getMonth() + 1) >= 10 ? (today.getMonth() + 1) : `0${today.getMonth() + 1}`;
+						const date = today.getDate() >= 10 ? today.getDate() : `0${today.getDate()}`;
+						const todayFullDate = `${year}-${month}-${date}`;
+						
+						let htmlStr = `
+							<tr>
+								<td>
+									<button type="button" id="rmAddRowBtn" onclick="fnRmAddRow(this);">-</button>
+								</td>
+								<td></td>
+								<td>
+									<input type="text" id="addBoardTitle${addRowCount}" name="addBoardTitle">
+								</td>
+								<td>${userId}</td>
+								<td>${todayFullDate}</td>
+								<td>0</td>
+								<td style="text-align: center;" name="statusTd" id="statusTd${addRowCount}">
+									<input type="hidden" name="addStatus" id="addStatus${addRowCount}"
+									value="I">
+									I
+								</td>
+							</tr>
+						`;
+						
+						// 추가된 행 테이블에 표출
+						$("#boardTable").append(htmlStr);
+						addRowCount++;
+					});
+					
+					// 수정버튼 클릭 시 수정모드로 변경
+					$("#updRowBtn").on('click', function() {
+						updateMode = !updateMode;
+						
+						$("td[name='boardTitleTd']").html("");
+						
+						$("td[name='boardTitleTd']").each(function(index) {
+							if(updateMode) {
+								let htmlStr = `
+									<input type="text" name="uBoardTitle"
+									id="uBoardTitle${index}"
+									value="${$(this).attr('data-new-title') == '' ? 
+									$(this).attr('data-board-title') : $(this).attr('data-new-title')}"
+									onkeyup="fnChangeTitle(this);">
+								`;
+								
+								$(this).append(htmlStr);
+							} else {
+								let htmlStr = `
+									<a id="uBoardTitle${index}"
+										href="/board/updateBoardCnt/${$(this).attr('data-board-no')}">
+										${$(this).attr('data-new-title') == '' ? 
+										$(this).attr('data-board-title') : $(this).attr('data-new-title')}
+									</a>
+								`;
+								
+								$(this).append(htmlStr);
+							}
+							
+						});
+					});
+					
+					// 삭제버튼 클릭 시 체크된 게시물들 삭제 상태로 변경
+					$("#delRowBtn").on('click', function() {
+						$("input:checkbox[name='chk']").each(function() {
+							if($(this).is(":checked")) {
+								$("#statusTd" + $(this).val()).text("D");
+								$("#status" + $(this).val()).val("D");
+							} else {
+								if($("#status" + $(this).val()).val() == "D" || 
+								$("#status" + $(this).val()).val() == "") {
+									$("#statusTd" + $(this).val()).text("");
+									$("#status" + $(this).val()).val("");									
+								}
+							}
+						});
+					});
+					
+					// 저장버튼 클릭 시 변경사항 저장
+					$("#savRowBtn").on('click', function() {
+						$("input[name='status']").each(function() {
+							if($(this).val() == "U") {
+								const updBoard = {
+									boardNo: $(this).attr("data-board-no"),
+									boardTitle: $(this).attr("data-new-title"),
+									boardStatus: "U"
+								};
+								
+								changeRows.push(updBoard);
+							} else if($(this).val() == "D") {
+								const delBoard = {
+									boardNo: $(this).attr("data-board-no"),
+									boardStatus: "D"
+								};
+								
+								changeRows.push(delBoard);
+							}
+						});
+						
+						$("input[name='addStatus']").each(function(index) {
+							if($(this).val() == "I") {
+								const addBoard = {
+									boardTitle: $("#addBoardTitle" + index).val(),
+									boardWriter: userId,
+									boardStatus: "I"
+								};
+								
+								changeRows.push(addBoard);
+							}
+						});
+						
+						$.ajax({
+							url: '/board/saveBoardList',
+							type: 'post',
+							data: {changeRows: JSON.stringify(changeRows)},
+							success: function(obj) {
+								console.log(obj);
+								let htmlStr = "";
+								for(let i = 0; i < obj.pageItems.content.length; i++) {
+									htmlStr += `
+										<tr>
+											<td>
+												<input type="checkbox" name="chk" id="chk${obj.pageItems.content[i].boardNo}"
+												value="${obj.pageItems.content[i].boardNo}">
+											</td>
+											<td>${obj.pageItems.content[i].boardNo}</td>
+											<td name="boardTitleTd" data-board-title="${obj.pageItems.content[i].boardTitle}"
+												data-board-no="${obj.pageItems.content[i].boardNo}" data-new-title="">
+												<a href="@{/board/updateBoardCnt/${obj.pageItems.content[i].boardNo}}">${obj.pageItems.content[i].boardTitle}
+												</a>
+											</td>
+											<td>${obj.pageItems.content[i].boardWriter}</td>
+											<td>${obj.pageItems.content[i].boardRegdate == null ? '' : String.prototype.substr(obj.pageItems.content[i].boardRegdate, 0, 10)}</td>
+											<td>${obj.pageItems.content[i].boardCnt}</td>
+											<td style="text-align: center;" name="statusTd" id="statusTd${obj.pageItems.content[i].boardNo}">
+											</td>
+											<input type="hidden" name="status" id="status${obj.pageItems.content[i].boardNo}"
+											data-board-no="${obj.pageItems.content[i].boardNo}" data-board-title="${obj.pageItems.content[i].boardTitle}" 
+											value="">
+										</tr>										
+										`;
+								}
+								
+								$("#boardTable").children().not(':first').remove();
+								$("#boardTable").append(htmlStr);
+							},
+							error: function(e) {
+								console.log(e);
+							}
+						})
+					});
+				});
+				
+				function fnRmAddRow(btn) {
+					$(btn).parent().parent().remove();
+					addRowCount--;
+				}
+				
+				// 수정모드에서 제목 변경시 실행될 메소드
+				// .text()는 보여지는 내용, .val()으로 값을 사용하는 것(input type="hidden") 권장
+				function fnChangeTitle(input) {
+					if($(input).val() != $(input).parent().attr("data-board-title")) {
+						$(input).parent().attr("data-new-title", $(input).val());
+						$("#statusTd" + $(input).parent().attr("data-board-no")).text("U");
+						$("#status" + $(input).parent().attr("data-board-no")).val("U");
+						$("#status" + $(input).parent().attr("data-board-no")).attr("data-new-title", $(input).val());
+					} else {
+						$("#statusTd" + $(input).parent().attr("data-board-no")).text("");
+						$("#status" + $(input).parent().attr("data-board-no")).val("");
+					}
+				}
 			</script>
 		</th:block>
 	</head>
@@ -43,15 +227,22 @@
 				</form>				
 				<table id="boardTable" border="1" style="width: 700px; border-collapse: collapse;">
 					<tr>
+						<th style="background: skyblue; width: 10px;"></th>
 						<th style="background: skyblue; width: 100px;">번호</th>
 						<th style="background: skyblue; width: 200px;">제목</th>
 						<th style="background: skyblue; width: 150px;">작성자</th>
 						<th style="background: skyblue; width: 150px;">등록일</th>
-						<th style="background: skyblue; width: 100px;">조회수</th> 
+						<th style="background: skyblue; width: 100px;">조회수</th>
+						<th style="background: skyblue; width: 100px;">상태</th> 
 					</tr>
 						<tr th:each="board: ${getBoardList}">
-							<td th:text="${board.boardNo}"></td>
 							<td>
+								<input type="checkbox" name="chk" th:id="'chk' + ${board.boardNo}"
+								th:value="${board.boardNo}">
+							</td>
+							<td th:text="${board.boardNo}"></td>
+							<td name="boardTitleTd" th:data-board-title="${board.boardTitle}"
+								th:data-board-no="${board.boardNo}" data-new-title="">
 								<a th:text="${board.boardTitle}"
 								   th:href="@{/board/updateBoardCnt/{boardNo} (boardNo=${board.boardNo})}">
 								</a>
@@ -59,8 +250,21 @@
 							<td th:text="${board.boardWriter}"></td>
 							<td th:text="${board.boardRegdate eq null ? '' : #strings.substring(board.boardRegdate, 0, 10)}"></td>
 							<td th:text="${board.boardCnt}"></td>
+							<td style="text-align: center;" name="statusTd" th:id="'statusTd' + ${board.boardNo}">
+							</td>
+							<input type="hidden" name="status" th:id="'status' + ${board.boardNo}"
+							th:data-board-no="${board.boardNo}" th:data-board-title="${board.boardTitle}" 
+							value="">
 						</tr>
 				</table>
+				<br/>
+				<div sec:authorize="hasRole('ROLE_ADMIN')"
+					 style="width: 700px; text-align: right;">
+					 <button type="button" id="addRowBtn">추가</button>
+					 <button type="button" id="updRowBtn">수정</button>
+					 <button type="button" id="delRowBtn">삭제</button>
+					 <button type="button" id="savRowBtn">저장</button>
+				</div>
 				<br/>
 				<div style="text-align:center;">
 					<ul class="pagination" th:if="${getBoardList.totalElements > 0}"

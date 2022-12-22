@@ -37,7 +37,9 @@ import com.ezen.springboard.entity.Board;
 import com.ezen.springboard.entity.BoardFile;
 import com.ezen.springboard.entity.CustomUserDetails;
 import com.ezen.springboard.service.board.BoardService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @RestController
@@ -311,7 +313,7 @@ public class BoardController {
 		public ModelAndView insertBoardView(@AuthenticationPrincipal CustomUserDetails customUser) throws IOException {	
 			System.out.println(customUser.getUsername());
 			ModelAndView mv = new ModelAndView();
-			mv.setViewName("/board/insertBoard.html");		
+			mv.setViewName("board/insertBoard.html");		
 			return mv;
 		}
 		
@@ -387,4 +389,42 @@ public class BoardController {
 			}
 		}
 
+		@PostMapping("/saveBoardList")
+		public ResponseEntity<?> saveBoardList(@RequestParam("changeRows") String changeRows, @PageableDefault(page = 0, size = 10) Pageable pageable) throws JsonMappingException, JsonProcessingException {
+			ResponseDTO<BoardDTO> response = new ResponseDTO<>();
+			List<Map<String, Object>> changeRowsList = new ObjectMapper().readValue(changeRows, 
+																	new TypeReference<List<Map<String, Object>>>() {});
+			
+			try {
+				boardService.saveBoardList(changeRowsList);
+				
+				Board board = Board.builder()
+									.searchCondition("")
+									.searchKeyword("")
+									.build();
+				
+				Page<Board> pageBoardList = boardService.getPageBoardList(board, pageable);
+				
+				Page<BoardDTO> pageBoardDTOList = pageBoardList.map(pageBoard -> 
+				BoardDTO.builder()
+						.boardNo(pageBoard.getBoardNo())
+						.boardTitle(pageBoard.getBoardTitle())
+						.boardContent(pageBoard.getBoardContent())
+						.boardWriter(pageBoard.getBoardWriter())
+						.boardRegdate(
+								pageBoard.getBoardRegdate() == null ?
+								null : 
+								pageBoard.getBoardRegdate().toString())
+						.boardCnt(pageBoard.getBoardCnt())
+						.build()
+				);
+				
+				response.setPageItems(pageBoardDTOList);
+				
+				return ResponseEntity.ok().body(response);
+			} catch(Exception e) {
+				response.setErrorMessage(e.getMessage());
+				return ResponseEntity.badRequest().body(response);
+			}
+		}
 }
