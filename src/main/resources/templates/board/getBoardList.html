@@ -54,7 +54,7 @@
 						`;
 						
 						// 추가된 행 테이블에 표출
-						$("#boardTable").append(htmlStr);
+						$("#boardTable").children(":first").append(htmlStr);
 						addRowCount++;
 					});
 					
@@ -160,7 +160,7 @@
 												</a>
 											</td>
 											<td>${obj.pageItems.content[i].boardWriter}</td>
-											<td>${obj.pageItems.content[i].boardRegdate == null ? '' : String.prototype.substr(obj.pageItems.content[i].boardRegdate, 0, 10)}</td>
+											<td>${obj.pageItems.content[i].boardRegdate == null ? '' : obj.pageItems.content[i].boardRegdate.substr(0, 10)}</td>
 											<td>${obj.pageItems.content[i].boardCnt}</td>
 											<td style="text-align: center;" name="statusTd" id="statusTd${obj.pageItems.content[i].boardNo}">
 											</td>
@@ -171,8 +171,8 @@
 										`;
 								}
 								
-								$("#boardTable").children().not(':first').remove();
-								$("#boardTable").append(htmlStr);
+								$("#boardTable").children(":first").children().not(':first').remove();
+								$("#boardTable").children(":first").append(htmlStr);
 							},
 							error: function(e) {
 								console.log(e);

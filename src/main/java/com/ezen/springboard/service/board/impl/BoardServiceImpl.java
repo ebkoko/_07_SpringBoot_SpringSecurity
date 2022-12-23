@@ -1,5 +1,6 @@
 package com.ezen.springboard.service.board.impl;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -164,6 +165,7 @@ public class BoardServiceImpl implements BoardService {
 				Board iBoard = Board.builder()
 									.boardTitle(String.valueOf(changeRowsList.get(i).get("boardTitle")))
 									.boardWriter(String.valueOf(changeRowsList.get(i).get("boardWriter")))
+									.boardRegdate(LocalDateTime.now())
 									.build();
 				
 				boardRepository.save(iBoard);
